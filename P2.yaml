@@ -14,9 +14,9 @@
             - Name: GetSource
               ActionTypeId: {Category: Source, Owner: ThirdParty, Provider: GitHub, Version: '1'}
               Configuration:
-                Owner: YOUR_GITHUB_OWNER # REPLACE
-                Repo: YOUR_FRONTEND_REPO # REPLACE
-                Branch: master
+                Owner: advaitnaresh 
+                Repo: Smart-Cloud-Album 
+                Branch: main
                 PollForSourceChanges: 'false'
                 AuthenticationType: OAUTH
               OutputArtifacts:

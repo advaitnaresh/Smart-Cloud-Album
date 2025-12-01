@@ -14,10 +14,15 @@ Parameters:
     Type: String
     Default: 'TSTALIASID'
     Description: Your Lex Bot Alias ID
+  GitHubOAuthToken:
+    Type: String
+    Default : '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'
+    NoEcho: true
+    Description: Your GitHub personal access token for CodePipeline.
 
 Resources:
   # ==================================================================
-  # 1. IAM ROLES (Permissions)
+  # 1. IAM ROLES
   # ==================================================================
   LambdaExecutionRole:
     Type: AWS::IAM::Role
@@ -64,7 +69,7 @@ Resources:
                 Action: s3:*
                 Resource: '*'
 
-  CodePipelineServiceRole: # Role for CodePipeline to access S3/Lambda/CodeBuild
+  CodePipelineServiceRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -90,13 +95,43 @@ Resources:
                   - iam:PassRole
                 Resource: '*'
 
+  CodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: codebuild.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CodeBuildPermissions
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+                  - s3:ListBucket
+                  - codecommit:GitPull
+                  - lambda:UpdateFunctionCode
+                  - iam:PassRole
+                Resource: '*'
+
   # ==================================================================
-  # 2. S3 BUCKETS (B1 and B2 with Public Access Fixes)
+  # 2. S3 BUCKETS (All 3 Buckets Defined Here)
   # ==================================================================
-  PhotosBucket: # B2 (Storage)
+  PhotosBucket:
     Type: AWS::S3::Bucket
     Properties:
-      PublicAccessBlockConfiguration: # FIX: Allows policies
+      PublicAccessBlockConfiguration:
         BlockPublicAcls: false
         BlockPublicPolicy: false
         IgnorePublicAcls: false
@@ -107,7 +142,7 @@ Resources:
             AllowedMethods: [GET, PUT, POST, HEAD]
             AllowedOrigins: ['*']
 
-  FrontendBucket: # B1 (Website Hosting)
+  FrontendBucket:
     Type: AWS::S3::Bucket
     Properties:
       PublicAccessBlockConfiguration:
@@ -117,6 +152,10 @@ Resources:
         RestrictPublicBuckets: false
       WebsiteConfiguration:
         IndexDocument: index.html
+
+  PipelineArtifactBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
 
   # POLICIES
   PhotosBucketPolicy:
@@ -145,12 +184,8 @@ Resources:
             Action: s3:GetObject
             Resource: !Sub "${FrontendBucket.Arn}/*"
 
-  PipelineArtifactBucket: # Separate bucket for pipeline artifacts
-    Type: AWS::S3::Bucket
-    DeletionPolicy: Delete
-
   # ==================================================================
-  # 3. LAMBDA FUNCTIONS (Embedded Working Code)
+  # 3. LAMBDA FUNCTIONS
   # ==================================================================
   IndexLambda:
     Type: AWS::Lambda::Function
@@ -266,13 +301,13 @@ Resources:
                   return {'statusCode': 500, 'headers': headers, 'body': json.dumps({"error": str(e)})}
 
   # ==================================================================
-  # 4. CODEPIPELINE & CODEBUILD RESOURCES
+  # 4. CODEPIPELINE & CODEBUILD
   # ==================================================================
   LambdaCodeBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
       Name: !Sub "${AWS::StackName}-LambdaBuild"
-      ServiceRole: !GetAtt CodePipelineServiceRole.Arn
+      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
       Artifacts: {Type: CODEPIPELINE}
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
@@ -280,7 +315,6 @@ Resources:
         Type: LINUX_CONTAINER
       Source: {Type: CODEPIPELINE}
 
-  # P1: Backend Deployment
   BackendPipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
@@ -292,7 +326,7 @@ Resources:
           Actions:
             - Name: GetSource
               ActionTypeId: {Category: Source, Owner: ThirdParty, Provider: GitHub, Version: '1'}
-              Configuration: {Owner: YOUR_GITHUB_OWNER, Repo: YOUR_BACKEND_REPO, Branch: master, PollForSourceChanges: 'true', AuthenticationType: OAUTH} # Placeholder
+              Configuration: {Owner: advaitnaresh, Repo: Smart-Cloud-Album, Branch: main, PollForSourceChanges: true, OAuthToken: !Ref GitHubOAuthToken}
               OutputArtifacts: [{Name: SourceArtifact}]
               RunOrder: 1
         - Name: Build
@@ -314,7 +348,6 @@ Resources:
               Configuration: {FunctionName: !Ref IndexLambda}
               InputArtifacts: [{Name: BuildArtifact}]
 
-  # P2: Frontend Deployment
   FrontendPipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
@@ -326,7 +359,7 @@ Resources:
           Actions:
             - Name: GetSource
               ActionTypeId: {Category: Source, Owner: ThirdParty, Provider: GitHub, Version: '1'}
-              Configuration: {Owner: YOUR_GITHUB_OWNER, Repo: YOUR_FRONTEND_REPO, Branch: master, PollForSourceChanges: 'true', AuthenticationType: OAUTH} # Placeholder
+              Configuration: {Owner: advaitnaresh, Repo: Smart-Cloud-Album, Branch: main, PollForSourceChanges: true, OAuthToken: !Ref GitHubOAuthToken}
               OutputArtifacts: [{Name: SourceArtifactFrontend}]
               RunOrder: 1
         - Name: Deploy
@@ -336,13 +369,8 @@ Resources:
               Configuration: {BucketName: !Ref FrontendBucket, Extract: 'true'}
               InputArtifacts: [{Name: SourceArtifactFrontend}]
 
-  PipelineArtifactBucket:
-    Type: AWS::S3::Bucket
-    DeletionPolicy: Delete
-
-
   # ==================================================================
-  # 5. API GATEWAY (Fixes for Binary + CORS)
+  # 5. API GATEWAY
   # ==================================================================
   PhotoAPI:
     Type: AWS::ApiGateway::RestApi
@@ -361,7 +389,7 @@ Resources:
     Type: AWS::ApiGateway::Resource
     Properties: {RestApiId: !Ref PhotoAPI, ParentId: !Ref ResPhotos, PathPart: '{item}'}
 
-  # Methods (GET, PUT, OPTIONS)
+  # Methods
   MethodSearch:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -370,7 +398,10 @@ Resources:
       HttpMethod: GET
       AuthorizationType: NONE
       ApiKeyRequired: true
-      Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SearchLambda.Arn}/invocations}
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SearchLambda.Arn}/invocations
 
   MethodUpload:
     Type: AWS::ApiGateway::Method
@@ -395,7 +426,7 @@ Resources:
           integration.request.path.item: 'method.request.path.item'
         PassthroughBehavior: WHEN_NO_MATCH
 
-  # OPTIONS (CORS Mock Fixes)
+  # OPTIONS
   OptionsSearch:
     Type: AWS::ApiGateway::Method
     Properties:

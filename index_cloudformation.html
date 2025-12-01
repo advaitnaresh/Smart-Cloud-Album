@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Cloud Album</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary-color: #6a11cb;
+            --secondary-color: #2575fc;
+            --glass-bg: rgba(255, 255, 255, 0.95);
+            --text-color: #333;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* --- Header --- */
+        header {
+            text-align: center;
+            padding: 40px 20px 20px 20px;
+            color: white;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            font-weight: 600;
+        }
+
+        header p {
+            margin-top: 10px;
+            opacity: 0.9;
+            font-weight: 300;
+        }
+
+        /* --- Main Container --- */
+        .container {
+            width: 90%;
+            max-width: 1000px;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+            padding-bottom: 30px;
+            flex-grow: 1; /* Pushes footer down */
+        }
+
+        @media (min-width: 768px) {
+            .container {
+                grid-template-columns: 1fr 1fr;
+            }
+            .full-width {
+                grid-column: span 2;
+            }
+        }
+
+        /* --- Cards (Glassmorphism) --- */
+        .card {
+            background: var(--glass-bg);
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            transition: transform 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        h3 {
+            margin-top: 0;
+            color: var(--primary-color);
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        /* --- Inputs & Buttons --- */
+        input[type="text"], input[type="file"] {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-family: inherit;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--secondary-color);
+        }
+
+        input[type="file"] {
+            background: #f9f9f9;
+            padding: 10px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.3s, transform 0.1s;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        /* --- Status Messages --- */
+        .status {
+            margin-top: 15px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            text-align: center;
+            min-height: 20px;
+        }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+
+        /* --- Gallery Grid --- */
+        .gallery-container {
+            margin-top: 20px;
+        }
+
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+        }
+
+        .gallery img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+            cursor: pointer;
+        }
+
+        .gallery img:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 12px rgba(0,0,0,0.2);
+        }
+        
+        .no-results {
+            text-align: center;
+            color: #777;
+            padding: 20px;
+            font-style: italic;
+        }
+
+        /* --- Footer --- */
+        footer {
+            width: 100%;
+            text-align: center;
+            color: white;
+            padding: 20px 0;
+            font-size: 0.9rem;
+            opacity: 0.8;
+            margin-top: auto;
+        }
+        
+        footer i {
+            color: #ff4757;
+            animation: beat 1s infinite alternate;
+        }
+
+        @keyframes beat {
+            to { transform: scale(1.2); }
+        }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1><i class="fas fa-cloud"></i> Smart Cloud Album</h1>
+        <p>Powered by AWS Lambda, Rekognition & OpenSearch</p>
+    </header>
+
+    <div class="container">
+        
+        <div class="card full-width">
+            <h3><i class="fas fa-search"></i> Search Photos</h3>
+            <div style="display: flex; gap: 10px;">
+                <input type="text" id="searchInput" placeholder="Try 'show me dogs', 'vacation', or 'trees'...">
+                <button onclick="searchPhotos()" style="width: auto; padding: 0 30px;">
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+            
+            <div class="gallery-container">
+                <div id="resultsArea" class="gallery">
+                    </div>
+            </div>
+        </div>
+
+        <div class="card full-width">
+            <h3><i class="fas fa-cloud-upload-alt"></i> Upload New Photo</h3>
+            <input type="file" id="fileInput" accept="image/png, image/jpeg, image/jpg">
+            <input type="text" id="customLabels" placeholder="Add custom tags (e.g., 'family, holiday')">
+            <button onclick="uploadPhoto()">
+                Upload Photo
+            </button>
+            <p id="uploadStatus" class="status"></p>
+        </div>
+
+    </div>
+
+    <footer>
+        <p>Made by <strong>Advait Jishnani</strong></p>
+    </footer>
+
+    <script>
+        // ==========================================
+        //  ⚙️ CONFIGURATION
+        // ==========================================
+        var API_URL = 'https://hnh6whjw3a.execute-api.us-east-1.amazonaws.com/dev'; // e.g. https://xyz.execute-api.us-east-1.amazonaws.com/dev
+        var API_KEY = 'bvfyMQDD6YaetAhwz1044wcVXTljmff3CcBzvrSi'; // e.g. aBcD123456
+        // ==========================================
+
+        function uploadPhoto() {
+            var file = document.getElementById('fileInput').files[0];
+            var custom_labels = document.getElementById('customLabels').value;
+            var status = document.getElementById('uploadStatus');
+            
+            if (!file) { 
+                status.innerText = "Please select a file first.";
+                status.className = "status error";
+                return; 
+            }
+
+            status.innerText = "Uploading...";
+            status.className = "status";
+
+            // FIX: DO NOT set Content-Type in headers. Let the browser handle the binary type.
+            fetch(API_URL + '/photos/' + file.name, {
+                method: 'PUT',
+                headers: {
+                    'x-api-key': API_KEY,
+                    // REMOVED: 'Content-Type' header is now omitted
+                    'x-amz-meta-customLabels': custom_labels
+                },
+                body: file // The raw binary file object
+            })
+            .then(response => {
+                if (response.ok) {
+                    status.innerText = "✅ Upload Successful! AI is indexing it now...";
+                    status.className = "status success";
+                    document.getElementById('fileInput').value = "";
+                    document.getElementById('customLabels').value = "";
+                } else {
+                    status.innerText = "❌ Error: " + response.statusText + " (Code: " + response.status + ")";
+                    status.className = "status error";
+                    console.error("Upload failed:", response);
+                }
+            })
+            .catch(error => {
+                status.innerText = "❌ Network Error";
+                status.className = "status error";
+                console.error("Network Error:", error);
+            });
+        }
+
+        function searchPhotos() {
+            var query = document.getElementById('searchInput').value;
+            var resultsArea = document.getElementById('resultsArea');
+            
+            if (!query) { return; }
+
+            resultsArea.innerHTML = "<p style='grid-column: 1/-1; text-align:center;'>Searching...</p>";
+
+            fetch(API_URL + '/search?q=' + query, {
+                method: 'GET',
+                headers: { 
+                    'x-api-key': API_KEY 
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                resultsArea.innerHTML = "";
+                
+                if (!data || data.length === 0) {
+                    resultsArea.innerHTML = "<p class='no-results' style='grid-column: 1/-1;'>No photos found. Try a different keyword!</p>";
+                    return;
+                }
+
+                data.forEach(item => {
+                    var img = document.createElement('img');
+                    img.src = item.url;
+                    img.alt = "Search Result";
+                    img.onclick = function() { window.open(item.url, '_blank'); };
+                    resultsArea.appendChild(img);
+                });
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                resultsArea.innerHTML = "<p class='status error' style='grid-column: 1/-1;'>Search Failed. Check console for details.</p>";
+            });
+        }
+
+        document.getElementById('searchInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                searchPhotos();
+            }
+        });
+    </script>
+</body>
+</html>
