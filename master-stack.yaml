@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Final Working CloudFormation Stack for AI Photo Search (A3)
+Description: Final Working CloudFormation Stack for AI Photo Search (A3) - V4
 
 Parameters:
   OpenSearchEndpoint:
@@ -16,7 +16,6 @@ Parameters:
     Description: Your Lex Bot Alias ID
   GitHubOAuthToken:
     Type: String
-    Default : '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'
     NoEcho: true
     Description: Your GitHub personal access token for CodePipeline.
 
@@ -87,6 +86,10 @@ Resources:
                 Action:
                   - s3:*
                   - codebuild:StartBuild
+                  - codebuild:BatchGetBuilds
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
                   - lambda:UpdateFunctionCode
                   - lambda:InvokeFunction
                   - cloudformation:CreateStack
@@ -126,7 +129,7 @@ Resources:
                 Resource: '*'
 
   # ==================================================================
-  # 2. S3 BUCKETS (All 3 Buckets Defined Here)
+  # 2. S3 BUCKETS
   # ==================================================================
   PhotosBucket:
     Type: AWS::S3::Bucket
@@ -301,7 +304,7 @@ Resources:
                   return {'statusCode': 500, 'headers': headers, 'body': json.dumps({"error": str(e)})}
 
   # ==================================================================
-  # 4. CODEPIPELINE & CODEBUILD
+  # 4. CODEPIPELINE & CODEBUILD RESOURCES
   # ==================================================================
   LambdaCodeBuildProject:
     Type: AWS::CodeBuild::Project
@@ -315,6 +318,7 @@ Resources:
         Type: LINUX_CONTAINER
       Source: {Type: CODEPIPELINE}
 
+  # P1: Backend Deployment
   BackendPipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
@@ -326,7 +330,12 @@ Resources:
           Actions:
             - Name: GetSource
               ActionTypeId: {Category: Source, Owner: ThirdParty, Provider: GitHub, Version: '1'}
-              Configuration: {Owner: advaitnaresh, Repo: Smart-Cloud-Album, Branch: main, PollForSourceChanges: true, OAuthToken: !Ref GitHubOAuthToken}
+              Configuration:
+                Owner: advaitnaresh
+                Repo: Smart-Cloud-Album
+                Branch: main
+                PollForSourceChanges: 'true'
+                OAuthToken: !Ref GitHubOAuthToken
               OutputArtifacts: [{Name: SourceArtifact}]
               RunOrder: 1
         - Name: Build
@@ -348,6 +357,7 @@ Resources:
               Configuration: {FunctionName: !Ref IndexLambda}
               InputArtifacts: [{Name: BuildArtifact}]
 
+  # P2: Frontend Deployment
   FrontendPipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
@@ -359,7 +369,12 @@ Resources:
           Actions:
             - Name: GetSource
               ActionTypeId: {Category: Source, Owner: ThirdParty, Provider: GitHub, Version: '1'}
-              Configuration: {Owner: advaitnaresh, Repo: Smart-Cloud-Album, Branch: main, PollForSourceChanges: true, OAuthToken: !Ref GitHubOAuthToken}
+              Configuration:
+                Owner: advaitnaresh
+                Repo: Smart-Cloud-Album
+                Branch: main
+                PollForSourceChanges: 'true'
+                OAuthToken: !Ref GitHubOAuthToken
               OutputArtifacts: [{Name: SourceArtifactFrontend}]
               RunOrder: 1
         - Name: Deploy
@@ -401,7 +416,7 @@ Resources:
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
-        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SearchLambda.Arn}/invocations
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SearchLambda.Arn}/invocations"
 
   MethodUpload:
     Type: AWS::ApiGateway::Method

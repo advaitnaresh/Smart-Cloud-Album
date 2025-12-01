@@ -6,9 +6,8 @@ phases:
       python: 3.9
   build:
     commands:
-      - echo "Packaging Lambda code..."
+      - echo "Zipping Lambda code..."
+      - zip -r index.zip index.py
 artifacts:
   files:
-    - index.py
-
-# random comments not related to buildspec
+    - index.zip
